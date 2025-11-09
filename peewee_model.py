@@ -29,7 +29,7 @@ def init_database():
         if 'connection' in locals() and connection:
             connection.close()
 
-# Initialize
+
 init_database()
 
 # Creating connection
