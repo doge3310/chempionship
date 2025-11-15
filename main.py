@@ -1,5 +1,5 @@
 import tkinter as tk
-from peewee_model import User
+from peewee_model import User, Roles, News, Comments
 from hasher import hash, verify
 from tkinter import ttk
 
@@ -8,84 +8,149 @@ class App(tk.Frame):
     def __init__(self, master):
         super().__init__(master)
         self.pack()
+        self.tables = {User: ["id", "username", "password", "role_id"],
+                       Roles: ["id", "name"],
+                       News: ["id", "name", "author", "content"],
+                       Comments: ["id", "name", "new_id", "content"]}
 
-        columns = ["1", "2", "3"]
-        self.treeview = ttk.Treeview(columns=columns, show="headings")
-        self.treeview.heading("1", text="id")
-        self.treeview.heading("2", text="username")
-        self.treeview.heading("3", text="password")
-        self.treeview.column("1", width=30, anchor="center")
-        self.treeview.column("2", width=100, anchor="center")
-        self.treeview.column("3", width=350, anchor="center")
-        self.treeview.pack(fill=tk.BOTH, expand=True)
+        self.tabs = [User, Roles, News, Comments]
+
+        self.notebook = ttk.Notebook()
+        self.notebook.pack(expand=True, fill=tk.BOTH)
+
+        self.user_frame = ttk.Frame()
+        self.role_frame = ttk.Frame()
+        self.news_frame = ttk.Frame()
+        self.comments_frame = ttk.Frame()
+
+        self.user_frame.pack(expand=True, fill=tk.BOTH)
+        self.role_frame.pack(expand=True, fill=tk.BOTH)
+        self.news_frame.pack(expand=True, fill=tk.BOTH)
+        self.comments_frame.pack(expand=True, fill=tk.BOTH)
+
+        self.notebook.add(self.user_frame, text="user")
+        self.notebook.add(self.role_frame, text="role")
+        self.notebook.add(self.news_frame, text="news")
+        self.notebook.add(self.comments_frame, text="comments")
+
+        self.active = self.tabs[self.notebook.index(self.notebook.select())]
+
+        self.label = ttk.Label()
+        self.label.pack()
+
+        self.instructions = ttk.Label(text=f"you need {self.tables[self.active]} parameters")
+        self.instructions.pack()
+
+        self.entry = ttk.Entry()
+        self.entry.pack()
 
         self.db_view = tk.Button(
             text="db view",
-            command=self.view
+            command=self.view_data
         )
         self.db_view.pack()
 
-        self.username = tk.Entry()
-        self.username.pack()
-
-        self.password = tk.Entry()
-        self.password.pack()
-
         self.reg = tk.Button(
             text="register",
-            command=self.register
+            command=self.register_data
         )
         self.reg.pack()
 
         self.delete = tk.Button(
             text="delete",
-            command=self.delete_user
+            command=self.delete_data
         )
         self.delete.pack()
 
-        self.newuser_name = tk.Entry()
-        self.newuser_name.pack()
-
-        self.new_name = tk.Entry()
-        self.new_name.pack()
-
-        self.newuser_password = tk.Entry()
-        self.newuser_password.pack()
-
         self.change_user = tk.Button(
             text="change",
-            command=self.change
+            command=self.change_data
         )
         self.change_user.pack()
 
-    def view(self):
-        for item in self.treeview.get_children():
-            self.treeview.delete(item)
+    def view_data(self):
+        self.upd()
 
-        for item in User.select():
-            self.treeview.insert("", 0, values=[item.id, item.username, item.password])
+        lst = self.view(self.active)
 
-    def register(self):
-        User.get_or_create(username=self.username.get(),
-                           defaults={
-                               "password": hash(self.password.get())
-                           })
+        self.label.config(text=lst)
 
-    def delete_user(self):
-        for select_user in self.treeview.selection():
-            item = self.treeview.item(select_user)
-            username = item["values"]
-            user = User.get(username=username[1])
-            User.delete_by_id(user)
+    def register_data(self):
+        self.upd()
 
-    def change(self):
-        username = self.newuser_name.get()
-        user = User.get(User.username == username)
+        self.regi(self.active)
 
-        user.username = self.new_name.get()
-        user.password = hash(self.newuser_password.get())
+    def delete_data(self):
+        self.upd()
 
-        user.save()
+        self.dele(self.active)
+
+    def change_data(self):
+        self.upd()
+
+        self.chan(self.active)
+
+
+    def upd(self):
+        self.active = self.tabs[self.notebook.index(self.notebook.select())]
+
+    def view(self, model):
+        lst = []
+
+        for item in model.select():
+            string = ""
+
+            for jtem in self.tables[model]:
+                out = getattr(item, jtem)
+
+                string += " " + str(out)
+
+            lst.append(string + "\n")
+
+        return lst
+
+    def regi(self, model):
+        try:
+            fields = self.entry.get().split("/")
+
+            data = {item: fields[index] for index, item in enumerate(self.tables[model])}
+
+            try:
+                data["password"] = hash(data["password"])
+
+            except KeyError:
+                pass
+
+            user, _ = model.get_or_create(**data)
+
+            model.update()
+
+        except IndexError:
+            self.instructions.config(text=f"you need {self.tables[self.active]} parameters")
+
+    def dele(self, model):
+        self.instructions.config(text="you need id user")
+
+        model.delete_by_id(self.entry.get())
+
+    def chan(self, model):
+        lst = self.tables[self.active][1:] + ["id_for_search"]
+        self.instructions.config(text=f"you need {lst} parameters")
+        vals = self.entry.get().split("/")
+
+        try:
+            if "password" in lst:
+                vals[1] = hash(vals[1])
+
+            table = model.get(model.id == vals[-1])
+
+            for index, item in enumerate(lst[: -1]):
+                setattr(table, item, vals[index])
+
+            table.save()
+
+        except:
+            self.instructions.config(text=f"you need {lst} parameters")
 
 
 root = tk.Tk()
