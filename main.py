@@ -68,6 +68,12 @@ class App(tk.Frame):
         )
         self.change_user.pack()
 
+        self.search_user = tk.Button(
+            text="search",
+            command=self.search_data
+        )
+        self.search_user.pack()
+
     def view_data(self):
         self.upd()
 
@@ -89,6 +95,11 @@ class App(tk.Frame):
         self.upd()
 
         self.chan(self.active)
+
+    def search_data(self):
+        self.upd()
+
+        self.label.config(text=self.search(self.active))
 
 
     def upd(self):
@@ -151,6 +162,27 @@ class App(tk.Frame):
 
         except:
             self.instructions.config(text=f"you need {lst} parameters")
+
+    def search(self, model):
+        self.instructions.config(text="you need name user")
+        table = self.tables[model]
+        name = self.entry.get()
+        lst = []
+
+        for item in model.select():
+            rec = getattr(item, table[1])
+
+            if name in str(rec):
+                string = ""
+
+                for jtem in table:
+                    out = getattr(item, jtem)
+
+                    string += " " + str(out)
+
+                lst.append(string + "\n")
+
+        return lst
 
 
 root = tk.Tk()
